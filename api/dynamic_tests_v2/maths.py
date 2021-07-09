@@ -15,17 +15,27 @@
 from common_import import *
 
 
-class SigmoidConfig(APIConfig):
+class MathsConfig(APIConfig):
     def __init__(self):
-        super(SigmoidConfig, self).__init__("sigmoid")
-        self.feed_spec = {"range": [-1, 1]}
+        super(MathsConfig, self).__init__('maths')
+        self.api_name = 'cos'
+        self.api_list = {
+            'cos': 'cos',
+            'exp': 'exp',
+            'log': 'log',
+            'sin': 'sin',
+            'sinh': 'sinh',
+            'sqrt': 'sqrt',
+            'square': 'square',
+            'tanh': 'tanh'
+        }
         self.alias_name = "activation"
 
 
-class PaddleSigmoid(PaddleDynamicAPIBenchmarkBase):
+class PDMaths(PaddleDynamicAPIBenchmarkBase):
     def build_graph(self, config):
-        x = self.variable(name="x", shape=config.x_shape, dtype=config.x_dtype)
-        result = paddle.nn.functional.sigmoid(x=x)
+        x = self.variable(name='x', shape=config.x_shape, dtype=config.x_dtype)
+        result = self.layers(config.api_name, x=x)
 
         self.feed_list = [x]
         self.fetch_list = [result]
@@ -33,10 +43,10 @@ class PaddleSigmoid(PaddleDynamicAPIBenchmarkBase):
             self.append_gradients(result, [x])
 
 
-class TorchSigmoid(PytorchAPIBenchmarkBase):
+class TorchMaths(PytorchAPIBenchmarkBase):
     def build_graph(self, config):
         x = self.variable(name='x', shape=config.x_shape, dtype=config.x_dtype)
-        result = torch.nn.functional.sigmoid(input=x)
+        result = self.layers(config.api_name, input=x)
 
         self.feed_list = [x]
         self.fetch_list = [result]
@@ -46,6 +56,4 @@ class TorchSigmoid(PytorchAPIBenchmarkBase):
 
 if __name__ == '__main__':
     test_main(
-        pd_dy_obj=PaddleSigmoid(),
-        torch_obj=TorchSigmoid(),
-        config=SigmoidConfig())
+        pd_dy_obj=PDMaths(), torch_obj=TorchMaths(), config=MathsConfig())

@@ -4,13 +4,13 @@ set -xe
 if [[ $# -lt 1 ]]; then
     echo "running job dict is {1: speed, 2:mem, 3:profiler, 6:max_batch_size}"
     echo "Usage: "
-    echo "  CUDA_VISIBLE_DEVICES=0 bash run_benchmark.sh 1|2|3 sp|mp 100(max_iter) base|big(model_type) fp32|amp_fp16|pure_fp16(fp_mode)"
+    echo "  CUDA_VISIBLE_DEVICES=0 bash run_benchmark.sh 1|2|3 sp|mp 100(max_iter) base|big(model_type) fp32|amp_fp16|pure_fp16(fp_mode) bs(4096|2560|5120)"
     exit
 fi
 
 function _set_params(){
     index=$1
-    base_batch_size=4096
+    base_batch_size=$6
 
     run_mode=${2}
     max_iter=${3}
@@ -64,9 +64,10 @@ function _train(){
     fi
 
     sed -i "s/^max_iter.*/max_iter: ${max_iter}/g" ../configs/${config_file} #不支持传参修改
+    sed -i "s/^batch_size:.*/batch_size: ${base_batch_size}/g" ../configs/${config_file} #不支持传参修改
     model_name=${model_name}_bs${base_batch_size}_${fp_mode}
 
-    train_cmd="--config ../configs/${config_file}"
+    train_cmd="--config ../configs/${config_file} --benchmark"
 
     if [ ${run_mode} = "sp" ]; then
         sed -i "s/^is_distributed.*/is_distributed: False/g" ../configs/${config_file} #不支持传参修改
@@ -74,7 +75,7 @@ function _train(){
     else
         sed -i "s/^is_distributed.*/is_distributed: True/g" ../configs/${config_file} #不支持传参修改
         rm -rf ./mylog
-        train_cmd="python -m paddle.distributed.launch  --gpus=$CUDA_VISIBLE_DEVICES  --log_dir ./mylog train.py "${train_cmd}
+        train_cmd="python -m paddle.distributed.launch  --gpus=$CUDA_VISIBLE_DEVICES  --log_dir ./mylog_${model_name} train.py --distribute "${train_cmd}
         log_parse_file="mylog/workerlog.0"
     fi
 
@@ -86,9 +87,10 @@ function _train(){
         echo -e "${model_name}, SUCCESS"
         export job_fail_flag=0
     fi
-    if [ ${run_mode} != "sp"  -a -d mylog ]; then
-        rm ${log_file}
-        cp mylog/workerlog.0 ${log_file}
+
+    if [ ${run_mode} != "sp"  -a -d mylog_${model_name} ]; then
+           rm ${log_file}
+           cp mylog_${model_name}/`ls -l mylog_${model_name}/ | awk '/^[^d]/ {print $5,$9}' | sort -nr | head -1 | awk '{print $2}'` ${log_file}
     fi
 }
 
